@@ -2,7 +2,7 @@ const CACHE_NAME = 'financas-app-v1';
 const ASSETS_TO_CACHE = [
   './index.html',
   './manifest.json',
-  './img/tapago.png'
+  './img/PatoPay_Transparente.png'
   // Bibliotecas como Tailwind e Chart.js são cacheadas em runtime, 
   // mas o shell principal é salvo aqui.
 ];
