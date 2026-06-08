@@ -10,8 +10,8 @@
     <meta name="theme-color" content="#3b82f6">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="img/PatoPay_Transparente.png">
     <link rel="icon" type="image/png" href="img/PatoPay_Transparente.png" onerror="this.remove()" />
+    <link rel="apple-touch-icon" href="img/PatoPay_Transparente.png">
 
     <!-- Tailwind CSS para o visual -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -161,7 +161,10 @@
             <section id="view-historico" class="view-section hidden animate-fade-in relative">
                 <div class="flex justify-between items-center mb-3 px-1">
                     <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider">Registros do Mês</h2>
-                    <button id="btn-bulk-select" onclick="toggleSelectMode()" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Selecionar Vários</button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="confirmClearMonth()" class="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition"><i class="ph ph-trash"></i> Limpar Mês</button>
+                        <button id="btn-bulk-select" onclick="toggleSelectMode()" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Selecionar Vários</button>
+                    </div>
                 </div>
                 
                 <div id="history-list" class="space-y-3 pb-20">
@@ -239,7 +242,7 @@
         let transactions = JSON.parse(localStorage.getItem('myFinanceData_v1')) || [];
         
         // Novas Variáveis Globais
-        let annualInvestmentGoal = parseFloat(localStorage.getItem('PatoPay_Transparente_goal_v1')) || 10000;
+        let annualInvestmentGoal = parseFloat(localStorage.getItem('tapago_goal_v1')) || 10000;
         let isSelectMode = false;
         let selectedTransactions = new Set();
         
@@ -471,7 +474,7 @@
             const newGoal = parseFloat(input.value);
             if (!isNaN(newGoal) && newGoal >= 0) {
                 annualInvestmentGoal = newGoal;
-                localStorage.setItem('PatoPay_Transparente_goal_v1', annualInvestmentGoal);
+                localStorage.setItem('tapago_goal_v1', annualInvestmentGoal);
                 updateApp();
                 btnElement.closest('.fixed').remove();
                 showToast("Meta atualizada!");
@@ -559,6 +562,39 @@
             localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
             toggleSelectMode();
             showToast("Registros apagados.");
+        }
+
+        function confirmClearMonth() {
+            const monthPrefix = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const monthTransactions = transactions.filter(t => t.date.startsWith(monthPrefix));
+            
+            if (monthTransactions.length === 0) {
+                showToast("Não há registros para apagar neste mês.", true);
+                return;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm";
+            overlay.innerHTML = `
+                <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl animate-fade-in">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">Limpar Mês?</h3>
+                    <p class="text-gray-500 text-sm mb-5">Tem certeza que deseja apagar TODOS os <strong>${monthTransactions.length} registros</strong> de ${document.getElementById('month-display').innerText}? Isso não pode ser desfeito.</p>
+                    <div class="flex gap-3">
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition" onclick="this.closest('.fixed').remove()">Cancelar</button>
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition" onclick="executeClearMonth(); this.closest('.fixed').remove()">Apagar Tudo</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function executeClearMonth() {
+            const monthPrefix = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            transactions = transactions.filter(t => !t.date.startsWith(monthPrefix));
+            localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+            if (isSelectMode) toggleSelectMode();
+            updateApp();
+            showToast("Todos os registros do mês apagados.");
         }
 
         // Função para alterar categoria pelo histórico
