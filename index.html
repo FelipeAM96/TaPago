@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TaPago</title>
+    <title>PatoPay</title>
     
     <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3b82f6">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="img/tapago.png">
+    <link rel="apple-touch-icon" href="img/PatoPay_Transparente.png">
+    <link rel="icon" type="image/png" href="img/PatoPay_Transparente.png" onerror="this.remove()" />
 
     <!-- Tailwind CSS para o visual -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -238,7 +239,7 @@
         let transactions = JSON.parse(localStorage.getItem('myFinanceData_v1')) || [];
         
         // Novas Variáveis Globais
-        let annualInvestmentGoal = parseFloat(localStorage.getItem('tapago_goal_v1')) || 10000;
+        let annualInvestmentGoal = parseFloat(localStorage.getItem('PatoPay_Transparente_goal_v1')) || 10000;
         let isSelectMode = false;
         let selectedTransactions = new Set();
         
@@ -470,7 +471,7 @@
             const newGoal = parseFloat(input.value);
             if (!isNaN(newGoal) && newGoal >= 0) {
                 annualInvestmentGoal = newGoal;
-                localStorage.setItem('tapago_goal_v1', annualInvestmentGoal);
+                localStorage.setItem('PatoPay_Transparente_goal_v1', annualInvestmentGoal);
                 updateApp();
                 btnElement.closest('.fixed').remove();
                 showToast("Meta atualizada!");
