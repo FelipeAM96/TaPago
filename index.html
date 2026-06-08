@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minhas Contas</title>
+    
+    <!-- PWA Config -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192x192.png?text=App">
+
+    <!-- Tailwind CSS para o visual -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js para os gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Phosphor Icons para os ícones -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* Ocultar barra de rolagem mas manter funcionalidade */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        body { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen w-screen overflow-hidden text-gray-800 font-sans select-none">
+
+    <!-- App Container simulando a tela do celular no Desktop e tela cheia no Mobile -->
+    <div class="max-w-md mx-auto h-full bg-white flex flex-col relative shadow-2xl">
+        
+        <!-- Header (Controle de Mês) -->
+        <header class="bg-blue-600 text-white p-4 pt-6 shadow-md z-10 flex justify-between items-center rounded-b-xl">
+            <button onclick="changeMonth(-1)" class="p-2 hover:bg-blue-700 rounded-full transition"><i class="ph ph-caret-left text-xl"></i></button>
+            <h1 id="month-display" class="text-lg font-bold capitalize">Junho 2026</h1>
+            <button onclick="changeMonth(1)" class="p-2 hover:bg-blue-700 rounded-full transition"><i class="ph ph-caret-right text-xl"></i></button>
+        </header>
+
+        <!-- Main Content Area (Scrollable) -->
+        <main class="flex-1 overflow-y-auto no-scrollbar pb-20 p-4 bg-gray-50" id="main-content">
+            
+            <!-- TELA 1: RESUMO (DASHBOARD) -->
+            <section id="view-resumo" class="view-section block animate-fade-in">
+                
+                <!-- Cards de Totais -->
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
+                        <span class="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">Total Gasto</span>
+                        <span id="total-expense" class="text-xl font-bold text-red-500">R$ 0,00</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center">
+                        <span class="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">Investido</span>
+                        <span id="total-investment" class="text-xl font-bold text-green-500">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <!-- Gráfico -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                    <h2 class="text-sm font-bold text-gray-700 mb-4 text-center">Despesas por Categoria</h2>
+                    <div class="relative w-full aspect-square max-h-64 flex justify-center">
+                        <canvas id="expenseChart"></canvas>
+                        <!-- Mensagem quando não houver dados -->
+                        <div id="no-data-msg" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm hidden">
+                            Sem despesas neste mês
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TELA 2: NOVO (ADICIONAR) -->
+            <section id="view-novo" class="view-section hidden animate-fade-in">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold text-gray-800 mb-4">Novo Registro</h2>
+                    
+                    <form id="add-form" onsubmit="addTransaction(event)">
+                        
+                        <!-- Tipo: Despesa ou Investimento -->
+                        <div class="flex p-1 bg-gray-100 rounded-xl mb-4">
+                            <button type="button" id="btn-type-expense" onclick="setFormType('expense')" class="flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-red-500 transition">Despesa</button>
+                            <button type="button" id="btn-type-investment" onclick="setFormType('investment')" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-green-500 transition">Investimento</button>
+                        </div>
+                        <input type="hidden" id="form-type" value="expense">
+
+                        <!-- Valor -->
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Valor (R$)</label>
+                            <input type="number" id="form-amount" step="0.01" min="0.01" required placeholder="0,00" class="w-full text-2xl p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+
+                        <!-- Categoria (Aparece apenas para Despesa) -->
+                        <div class="mb-4" id="form-category-container">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Categoria</label>
+                            <select id="form-category" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
+                                <option value="mercado">🛒 Mercado</option>
+                                <option value="restaurante">🍽️ Restaurante</option>
+                                <option value="transporte">🚗 Transporte</option>
+                                <option value="diversao">🎉 Diversão</option>
+                                <option value="moradia">🏠 Moradia</option>
+                                <option value="saude">❤️ Saúde</option>
+                                <option value="outros">••• Outros</option>
+                            </select>
+                        </div>
+
+                        <!-- Descrição -->
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Descrição</label>
+                            <input type="text" id="form-desc" required placeholder="Ex: Almoço de domingo" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+
+                        <!-- Data -->
+                        <div class="mb-6">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+                            <input type="date" id="form-date" required class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
+                        </div>
+
+                        <!-- Botão Salvar -->
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition">
+                            Salvar Registro
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TELA 3: HISTÓRICO -->
+            <section id="view-historico" class="view-section hidden animate-fade-in">
+                <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Registros do Mês</h2>
+                
+                <div id="history-list" class="space-y-3">
+                    <!-- Registros serão injetados aqui via JS -->
+                </div>
+                
+                <div id="history-empty" class="hidden flex flex-col items-center justify-center py-10 opacity-50">
+                    <i class="ph ph-receipt text-5xl mb-2 text-gray-400"></i>
+                    <p class="text-gray-500">Nenhum registro encontrado.</p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <button onclick="switchTab('resumo')" id="tab-resumo" class="nav-btn flex flex-col items-center p-2 text-blue-600 transition w-20">
+                <i class="ph-fill ph-chart-pie-slice text-2xl mb-1"></i>
+                <span class="text-[10px] font-bold">Resumo</span>
+            </button>
+            <button onclick="switchTab('novo')" id="tab-novo" class="nav-btn flex flex-col items-center p-2 text-gray-400 hover:text-blue-500 transition w-20">
+                <i class="ph ph-plus-circle text-2xl mb-1"></i>
+                <span class="text-[10px] font-medium">Novo</span>
+            </button>
+            <button onclick="switchTab('historico')" id="tab-historico" class="nav-btn flex flex-col items-center p-2 text-gray-400 hover:text-blue-500 transition w-20">
+                <i class="ph ph-list-dashes text-2xl mb-1"></i>
+                <span class="text-[10px] font-medium">Histórico</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // --- CONFIGURAÇÕES E DADOS ---
+        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        
+        const categoryData = {
+            'mercado': { name: 'Mercado', icon: 'ph-shopping-cart', color: '#3b82f6', bg: 'bg-blue-100', text: 'text-blue-600' },
+            'restaurante': { name: 'Restaurante', icon: 'ph-fork-knife', color: '#f97316', bg: 'bg-orange-100', text: 'text-orange-600' },
+            'transporte': { name: 'Transporte', icon: 'ph-car', color: '#6b7280', bg: 'bg-gray-200', text: 'text-gray-600' },
+            'diversao': { name: 'Diversão', icon: 'ph-confetti', color: '#a855f7', bg: 'bg-purple-100', text: 'text-purple-600' },
+            'moradia': { name: 'Moradia', icon: 'ph-house', color: '#14b8a6', bg: 'bg-teal-100', text: 'text-teal-600' },
+            'saude': { name: 'Saúde', icon: 'ph-heartbeat', color: '#ef4444', bg: 'bg-red-100', text: 'text-red-600' },
+            'outros': { name: 'Outros', icon: 'ph-dots-three-circle', color: '#9ca3af', bg: 'bg-gray-200', text: 'text-gray-600' },
+            'investimento': { name: 'Investimento', icon: 'ph-trend-up', color: '#22c55e', bg: 'bg-green-100', text: 'text-green-600' }
+        };
+
+        // Estado da Aplicação
+        let currentDate = new Date();
+        let transactions = JSON.parse(localStorage.getItem('myFinanceData_v1')) || [];
+        let chartInstance = null;
+
+        // --- INICIALIZAÇÃO ---
+        window.onload = () => {
+            document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
+            updateApp();
+            
+            // Registro do Service Worker para funcionar offline (PWA)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW falhou:', err));
+            }
+        };
+
+        // --- NAVEGAÇÃO E UI ---
+        function switchTab(tabId) {
+            // Esconder todas as seções
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            // Atualizar ícones da barra inferior
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600');
+                btn.classList.add('text-gray-400');
+                btn.querySelector('span').classList.remove('font-bold');
+                btn.querySelector('span').classList.add('font-medium');
+                
+                // Mudar ícone para versão normal
+                let icon = btn.querySelector('i');
+                icon.className = icon.className.replace('ph-fill', 'ph');
+            });
+
+            // Ativar tab atual
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.remove('text-gray-400');
+            activeBtn.classList.add('text-blue-600');
+            activeBtn.querySelector('span').classList.remove('font-medium');
+            activeBtn.querySelector('span').classList.add('font-bold');
+            
+            // Mudar ícone para versão preenchida
+            let activeIcon = activeBtn.querySelector('i');
+            activeIcon.className = activeIcon.className.replace('ph ', 'ph-fill ');
+
+            if (tabId === 'resumo') renderChart();
+        }
+
+        function setFormType(type) {
+            document.getElementById('form-type').value = type;
+            const btnExp = document.getElementById('btn-type-expense');
+            const btnInv = document.getElementById('btn-type-investment');
+            const catContainer = document.getElementById('form-category-container');
+
+            if (type === 'expense') {
+                btnExp.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-red-500 transition";
+                btnInv.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-green-500 transition";
+                catContainer.classList.remove('hidden');
+            } else {
+                btnInv.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-green-500 transition";
+                btnExp.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-red-500 transition";
+                catContainer.classList.add('hidden');
+            }
+        }
+
+        function changeMonth(offset) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            updateApp();
+        }
+
+        // --- LÓGICA DE DADOS ---
+        function updateApp() {
+            // Atualizar título do mês
+            const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            document.getElementById('month-display').innerText = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+
+            const monthPrefix = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            const monthTransactions = transactions.filter(t => t.date.startsWith(monthPrefix));
+
+            // Calcular Totais
+            let totalExpense = 0;
+            let totalInvestment = 0;
+
+            monthTransactions.forEach(t => {
+                if (t.type === 'expense') totalExpense += t.amount;
+                if (t.type === 'investment') totalInvestment += t.amount;
+            });
+
+            document.getElementById('total-expense').innerText = formatCurrency(totalExpense);
+            document.getElementById('total-investment').innerText = formatCurrency(totalInvestment);
+
+            renderHistory(monthTransactions);
+            
+            // Só renderiza gráfico se a tela de resumo estiver visível
+            if (!document.getElementById('view-resumo').classList.contains('hidden')) {
+                renderChart(monthTransactions);
+            }
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            const type = document.getElementById('form-type').value;
+            const amount = parseFloat(document.getElementById('form-amount').value);
+            const category = type === 'expense' ? document.getElementById('form-category').value : 'investimento';
+            const desc = document.getElementById('form-desc').value;
+            const date = document.getElementById('form-date').value;
+
+            const newTx = { id: Date.now(), type, category, amount, description: desc, date };
+            
+            transactions.push(newTx);
+            localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+
+            // Limpar formulário (exceto data)
+            document.getElementById('form-amount').value = '';
+            document.getElementById('form-desc').value = '';
+
+            // Voltar para aba de histórico para ver a inserção
+            updateApp();
+            switchTab('historico');
+        }
+
+        function deleteTransaction(id) {
+            if(confirm("Tem certeza que deseja apagar este registro?")) {
+                transactions = transactions.filter(t => t.id !== id);
+                localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+                updateApp();
+            }
+        }
+
+        // --- RENDERIZAÇÃO ---
+        function renderHistory(monthTx) {
+            const list = document.getElementById('history-list');
+            const empty = document.getElementById('history-empty');
+            
+            list.innerHTML = '';
+
+            if (monthTx.length === 0) {
+                list.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            list.classList.remove('hidden');
+            empty.classList.add('hidden');
+
+            // Ordenar da mais recente para a mais antiga
+            monthTx.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+                const cat = categoryData[t.category] || categoryData['outros'];
+                const isExpense = t.type === 'expense';
+                
+                // Formatar data localmente
+                const [y, m, d] = t.date.split('-');
+                const dateStr = `${d}/${m}`;
+
+                const item = document.createElement('div');
+                item.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3";
+                item.innerHTML = `
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center ${cat.bg} ${cat.text}">
+                        <i class="ph ${cat.icon} text-xl"></i>
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                        <h3 class="font-bold text-gray-800 text-sm truncate">${t.description}</h3>
+                        <p class="text-xs text-gray-500">${cat.name} • ${dateStr}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-sm ${isExpense ? 'text-red-500' : 'text-green-500'}">
+                            ${isExpense ? '-' : '+'}${formatCurrency(t.amount)}
+                        </p>
+                        <button onclick="deleteTransaction(${t.id})" class="text-xs text-gray-400 hover:text-red-500 mt-1">
+                            <i class="ph ph-trash"></i> Apagar
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderChart(monthTx = null) {
+            if (!monthTx) {
+                const monthPrefix = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                monthTx = transactions.filter(t => t.date.startsWith(monthPrefix));
+            }
+
+            const expenses = monthTx.filter(t => t.type === 'expense');
+            const noDataMsg = document.getElementById('no-data-msg');
+            const canvas = document.getElementById('expenseChart');
+
+            if (expenses.length === 0) {
+                noDataMsg.classList.remove('hidden');
+                canvas.style.display = 'none';
+                if (chartInstance) chartInstance.destroy();
+                return;
+            }
+
+            noDataMsg.classList.add('hidden');
+            canvas.style.display = 'block';
+
+            // Agrupar gastos por categoria
+            const dataMap = {};
+            expenses.forEach(t => {
+                if (!dataMap[t.category]) dataMap[t.category] = 0;
+                dataMap[t.category] += t.amount;
+            });
+
+            const labels = [];
+            const dataValues = [];
+            const bgColors = [];
+
+            for (const [catId, amount] of Object.entries(dataMap)) {
+                labels.push(categoryData[catId].name);
+                dataValues.push(amount);
+                bgColors.push(categoryData[catId].color);
+            }
+
+            if (chartInstance) chartInstance.destroy();
+
+            const ctx = canvas.getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: bgColors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {size: 11} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) label += ': ';
+                                    label += formatCurrency(context.raw);
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
