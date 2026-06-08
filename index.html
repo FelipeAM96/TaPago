@@ -124,6 +124,17 @@
                             Salvar Registro
                         </button>
                     </form>
+
+                    <!-- Importar CSV -->
+                    <div class="mt-6 border-t border-gray-100 pt-6 text-center">
+                        <h3 class="text-sm font-bold text-gray-700 mb-1">Importar do Banco</h3>
+                        <p class="text-xs text-gray-500 mb-4">Adicione registros automaticamente usando o extrato (CSV) do seu banco.</p>
+                        
+                        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                        <button type="button" onclick="document.getElementById('csv-file').click()" class="w-full bg-gray-50 text-gray-700 font-bold py-3 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-100 active:scale-95 transition flex items-center justify-center gap-2">
+                            <i class="ph ph-file-csv text-xl"></i> Importar Extrato (CSV)
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -163,6 +174,20 @@
 
     <!-- Application Logic -->
     <script>
+        // --- TOAST NOTIFICATION (AVISOS VISUAIS) ---
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 left-1/2 -translate-x-1/2 p-3 rounded-lg shadow-xl z-50 text-white text-sm font-bold transition-all duration-300 flex items-center gap-2 ${isError ? 'bg-red-500' : 'bg-green-500'}`;
+            toast.innerHTML = `<i class="ph ${isError ? 'ph-warning-circle' : 'ph-check-circle'} text-lg"></i> ${message}`;
+            document.body.appendChild(toast);
+            
+            // Some após 3 segundos
+            setTimeout(() => { 
+                toast.classList.add('opacity-0'); 
+                setTimeout(() => toast.remove(), 300); 
+            }, 3000);
+        }
+
         // --- CONFIGURAÇÕES E DADOS ---
         const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         
@@ -186,6 +211,16 @@
         window.onload = () => {
             document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
             updateApp();
+            
+            // Lógica para ler os Atalhos (Shortcuts) do ícone pressionado
+            const params = new URLSearchParams(window.location.search);
+            const startTab = params.get('tab');
+            const startType = params.get('type');
+
+            if (startTab === 'novo') {
+                switchTab('novo');
+                if (startType) setFormType(startType);
+            }
             
             // Registro do Service Worker para funcionar offline (PWA)
             if ('serviceWorker' in navigator) {
@@ -296,14 +331,156 @@
             // Voltar para aba de histórico para ver a inserção
             updateApp();
             switchTab('historico');
+            showToast("Registro salvo com sucesso!");
         }
 
         function deleteTransaction(id) {
-            if(confirm("Tem certeza que deseja apagar este registro?")) {
-                transactions = transactions.filter(t => t.id !== id);
-                localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
-                updateApp();
-            }
+            const tx = transactions.find(t => t.id === id);
+            if(!tx) return;
+            
+            // Caixa de confirmação customizada bonita
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm";
+            overlay.innerHTML = `
+                <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl animate-fade-in">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">Apagar Registro?</h3>
+                    <p class="text-gray-500 text-sm mb-5">Tem certeza que deseja apagar "${tx.description}"?</p>
+                    <div class="flex gap-3">
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition" onclick="this.closest('.fixed').remove()">Cancelar</button>
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition" onclick="confirmDelete(${id}); this.closest('.fixed').remove()">Apagar</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function confirmDelete(id) {
+            transactions = transactions.filter(t => t.id !== id);
+            localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+            updateApp();
+            showToast("Registro apagado.");
+        }
+
+        // --- IMPORTAÇÃO DE CSV E INTELIGÊNCIA ---
+        function guessCategory(desc, isExpense) {
+            if (!isExpense) return 'investimento';
+            const d = desc.toLowerCase();
+            
+            // Inteligência simples para adivinhar onde você gastou
+            if (d.includes('ifood') || d.includes('restaurante') || d.includes('padaria') || d.includes('pizza') || d.includes('mcdonald') || d.includes('bk')) return 'restaurante';
+            if (d.includes('uber') || d.includes('99') || d.includes('posto') || d.includes('combustivel') || d.includes('passagem') || d.includes('metro')) return 'transporte';
+            if (d.includes('mercado') || d.includes('supermercado') || d.includes('atacadao') || d.includes('carrefour') || d.includes('hortifruti')) return 'mercado';
+            if (d.includes('netflix') || d.includes('spotify') || d.includes('cinema') || d.includes('ingresso') || d.includes('steam') || d.includes('ingresso')) return 'diversao';
+            if (d.includes('farmacia') || d.includes('droga') || d.includes('medico') || d.includes('hospital') || d.includes('unimed')) return 'saude';
+            if (d.includes('luz') || d.includes('agua') || d.includes('condominio') || d.includes('aluguel') || d.includes('internet') || d.includes('vivo') || d.includes('claro')) return 'moradia';
+            
+            return 'outros'; // Padrão caso não consiga adivinhar
+        }
+
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(l => l.trim() !== '');
+                if (lines.length < 2) {
+                    showToast("Arquivo CSV parece vazio ou inválido.", true);
+                    return;
+                }
+
+                // Detectar separador (alguns bancos usam vírgula, outros usam ponto e vírgula)
+                const sep = lines[0].includes(';') ? ';' : ',';
+                const headers = lines[0].toLowerCase().split(sep).map(h => h.replace(/"/g, '').trim());
+                
+                // Tentar encontrar as colunas automaticamente pelo cabeçalho
+                let dateIdx = headers.findIndex(h => h.includes('data'));
+                let valIdx = headers.findIndex(h => h.includes('valor') || h.includes('quantia') || h.includes('saída') || h.includes('importe'));
+                let descIdx = headers.findIndex(h => h.includes('desc') || h.includes('histórico') || h.includes('detalhe') || h.includes('título'));
+
+                // Caso os nomes das colunas sejam muito estranhos, usar fallback numérico
+                if (dateIdx === -1) dateIdx = 0;
+                if (valIdx === -1) valIdx = headers.length > 3 ? 3 : (headers.length - 1); 
+                if (descIdx === -1) descIdx = headers.length > 2 ? 1 : -1;
+
+                let addedCount = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    // Evita quebrar ao achar vírgulas dentro de aspas no texto da descrição
+                    let rawCols = lines[i].match(/(".*?"|[^";,]+)(?=\s*[;,]|\s*$)/g) || [];
+                    if (rawCols.length < 2) continue;
+                    
+                    let cols = rawCols.map(c => c.replace(/^"|"$/g, '').trim());
+
+                    let dateRaw = cols[dateIdx] || "";
+                    let valRaw = cols[valIdx] || "0";
+                    let descRaw = (descIdx !== -1 && cols[descIdx]) ? cols[descIdx] : "Importado do CSV";
+
+                    // Acertar o formato da data do arquivo do banco para o App
+                    let dateStr = "";
+                    if (dateRaw.includes('/')) {
+                        let parts = dateRaw.split('/');
+                        if (parts.length === 3) {
+                            dateStr = `${parts[2].length === 4 ? parts[2] : '20'+parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                        }
+                    } else if (dateRaw.includes('-')) {
+                        dateStr = dateRaw.substring(0, 10);
+                    }
+                    if (!dateStr || dateStr.length < 10) dateStr = new Date().toISOString().split('T')[0];
+
+                    // Corrigir número (tirar R$, formatar centavos brasileiros e americanos)
+                    valRaw = valRaw.replace('R$', '').trim();
+                    if (valRaw.includes(',') && valRaw.indexOf(',') > valRaw.lastIndexOf('.')) {
+                        valRaw = valRaw.replace(/\./g, '').replace(',', '.'); // BR (1.500,00)
+                    } else if (valRaw.includes(',') && valRaw.indexOf('.') > valRaw.lastIndexOf(',')) {
+                        valRaw = valRaw.replace(/,/g, ''); // US (1,500.00)
+                    } else if (valRaw.includes(',')) {
+                        valRaw = valRaw.replace(',', '.'); // Só vírgula (1500,00)
+                    }
+
+                    let amount = parseFloat(valRaw);
+                    if (isNaN(amount) || amount === 0) continue;
+
+                    // Lógica para detectar se é despesa ou investimento/rendimento
+                    let type = amount < 0 ? 'expense' : 'investment';
+                    let dLower = descRaw.toLowerCase();
+                    
+                    // Alguns cartões mandam a fatura toda com sinal positivo. Assumimos tudo como despesa, exceto algumas palavras
+                    if (amount > 0 && (dLower.includes('rendimento') || dLower.includes('resgate') || dLower.includes('salário') || dLower.includes('pix recebido') || dLower.includes('transferência recebida'))) {
+                         type = 'investment';
+                    } else if (amount > 0 && sep === ',') {
+                        type = 'expense';
+                    }
+                    
+                    let finalAmount = Math.abs(amount);
+                    let category = guessCategory(descRaw, type === 'expense');
+
+                    transactions.push({
+                        id: Date.now() + i,
+                        type,
+                        category,
+                        amount: finalAmount,
+                        description: descRaw,
+                        date: dateStr
+                    });
+                    addedCount++;
+                }
+
+                if (addedCount > 0) {
+                    localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+                    showToast(`${addedCount} registros importados com sucesso!`);
+                    updateApp();
+                    switchTab('historico');
+                } else {
+                    showToast("Nenhum valor válido encontrado no arquivo.", true);
+                }
+                
+                // Limpar input para poder importar o mesmo arquivo depois de apagar se errar
+                event.target.value = '';
+            };
+            
+            reader.readAsText(file);
         }
 
         // --- RENDERIZAÇÃO ---
