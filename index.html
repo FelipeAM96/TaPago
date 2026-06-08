@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PatoPay</title>
+    <title>TaPago</title>
     
     <!-- PWA Config -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3b82f6">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="img/PatoPay_Transparente.png">
-    <link rel="icon" type="image/png" href="img/PatoPay_Transparente.png" onerror="this.remove()" />
-
+    <link rel="apple-touch-icon" href="img/tapago.png">
 
     <!-- Tailwind CSS para o visual -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,6 +59,22 @@
                     </div>
                 </div>
 
+                <!-- Meta de Investimento Anual -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-sm font-bold text-gray-700">Meta de Investimentos (<span id="goal-year"></span>)</h2>
+                        <button onclick="openGoalModal()" class="text-blue-500 hover:bg-blue-50 p-1 rounded transition"><i class="ph ph-pencil-simple"></i></button>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Acumulado: <strong id="ytd-investment" class="text-green-500">R$ 0,00</strong></span>
+                        <span>Meta: <strong id="goal-display">R$ 0,00</strong></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                        <div id="goal-progress-bar" class="bg-green-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p id="goal-percentage" class="text-right text-[10px] text-gray-400 font-bold">0% concluído</p>
+                </div>
+
                 <!-- Gráfico -->
                 <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
                     <h2 class="text-sm font-bold text-gray-700 mb-4 text-center">Despesas por Categoria</h2>
@@ -70,6 +84,14 @@
                         <div id="no-data-msg" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm hidden">
                             Sem despesas neste mês
                         </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico Anual -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                    <h2 class="text-sm font-bold text-gray-700 mb-4 text-center">Balanço do Ano (<span id="year-display"></span>)</h2>
+                    <div class="relative w-full h-48">
+                        <canvas id="yearlyChart"></canvas>
                     </div>
                 </div>
 
@@ -85,7 +107,7 @@
                         <!-- Tipo: Despesa ou Investimento -->
                         <div class="flex p-1 bg-gray-100 rounded-xl mb-4">
                             <button type="button" id="btn-type-expense" onclick="setFormType('expense')" class="flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-red-500 transition">Despesa</button>
-                            <button type="button" id="btn-type-investment" onclick="setFormType('investment')" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-green-500 transition">Investimento</button>
+                            <button type="button" id="btn-type-investment" onclick="setFormType('income')" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-green-500 transition">Entrada/Invest.</button>
                         </div>
                         <input type="hidden" id="form-type" value="expense">
 
@@ -95,24 +117,18 @@
                             <input type="number" id="form-amount" step="0.01" min="0.01" required placeholder="0,00" class="w-full text-2xl p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                         </div>
 
-                        <!-- Categoria (Aparece apenas para Despesa) -->
+                        <!-- Categoria -->
                         <div class="mb-4" id="form-category-container">
                             <label class="block text-xs font-semibold text-gray-500 mb-1">Categoria</label>
                             <select id="form-category" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
-                                <option value="mercado">🛒 Mercado</option>
-                                <option value="restaurante">🍽️ Restaurante</option>
-                                <option value="transporte">🚗 Transporte</option>
-                                <option value="diversao">🎉 Diversão</option>
-                                <option value="moradia">🏠 Moradia</option>
-                                <option value="saude">❤️ Saúde</option>
-                                <option value="outros">••• Outros</option>
+                                <!-- Preenchido via JS -->
                             </select>
                         </div>
 
                         <!-- Descrição -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-semibold text-gray-500 mb-1">Descrição</label>
-                            <input type="text" id="form-desc" required placeholder="Ex: Almoço de domingo" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        <div class="mb-4" id="form-desc-container">
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Descrição (Opcional)</label>
+                            <input type="text" id="form-desc" placeholder="Ex: Almoço de domingo" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                         </div>
 
                         <!-- Data -->
@@ -141,16 +157,27 @@
             </section>
 
             <!-- TELA 3: HISTÓRICO -->
-            <section id="view-historico" class="view-section hidden animate-fade-in">
-                <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Registros do Mês</h2>
+            <section id="view-historico" class="view-section hidden animate-fade-in relative">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider">Registros do Mês</h2>
+                    <button id="btn-bulk-select" onclick="toggleSelectMode()" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Selecionar Vários</button>
+                </div>
                 
-                <div id="history-list" class="space-y-3">
+                <div id="history-list" class="space-y-3 pb-20">
                     <!-- Registros serão injetados aqui via JS -->
                 </div>
                 
                 <div id="history-empty" class="hidden flex flex-col items-center justify-center py-10 opacity-50">
                     <i class="ph ph-receipt text-5xl mb-2 text-gray-400"></i>
                     <p class="text-gray-500">Nenhum registro encontrado.</p>
+                </div>
+
+                <!-- Barra Inferior de Ações em Lote (Flutuante) -->
+                <div id="bulk-action-bar" class="hidden fixed bottom-[75px] left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-gray-800 text-white border border-gray-700 p-3 shadow-2xl flex justify-between items-center rounded-2xl z-20 transition-all">
+                    <span class="text-sm font-bold"><span id="selected-count">0</span> selecionados</span>
+                    <button onclick="confirmBulkDelete()" class="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-600 active:scale-95 transition shadow-md flex items-center gap-2">
+                        <i class="ph ph-trash"></i> Apagar
+                    </button>
                 </div>
             </section>
 
@@ -201,17 +228,34 @@
             'moradia': { name: 'Moradia', icon: 'ph-house', color: '#14b8a6', bg: 'bg-teal-100', text: 'text-teal-600' },
             'saude': { name: 'Saúde', icon: 'ph-heartbeat', color: '#ef4444', bg: 'bg-red-100', text: 'text-red-600' },
             'outros': { name: 'Outros', icon: 'ph-dots-three-circle', color: '#9ca3af', bg: 'bg-gray-200', text: 'text-gray-600' },
-            'investimento': { name: 'Investimento', icon: 'ph-trend-up', color: '#22c55e', bg: 'bg-green-100', text: 'text-green-600' }
+            'investimento': { name: 'Investimento', icon: 'ph-trend-up', color: '#22c55e', bg: 'bg-green-100', text: 'text-green-600' },
+            'pagamento': { name: 'Pagamento/Salário', icon: 'ph-money', color: '#10b981', bg: 'bg-emerald-100', text: 'text-emerald-600' },
+            'reembolso': { name: 'Reembolso', icon: 'ph-arrows-left-right', color: '#84cc16', bg: 'bg-lime-100', text: 'text-lime-600' }
         };
 
         // Estado da Aplicação
         let currentDate = new Date();
         let transactions = JSON.parse(localStorage.getItem('myFinanceData_v1')) || [];
+        
+        // Novas Variáveis Globais
+        let annualInvestmentGoal = parseFloat(localStorage.getItem('tapago_goal_v1')) || 10000;
+        let isSelectMode = false;
+        let selectedTransactions = new Set();
+        
+        // Migrar dados antigos para o novo sistema
+        transactions = transactions.map(t => {
+            if (t.type === 'investment') t.type = 'income';
+            if (t.category === 'investment') t.category = 'investimento';
+            return t;
+        });
+
         let chartInstance = null;
+        let yearlyChartInstance = null;
 
         // --- INICIALIZAÇÃO ---
         window.onload = () => {
             document.getElementById('form-date').value = new Date().toISOString().split('T')[0];
+            setFormType('expense'); // Inicializar formulário
             updateApp();
             
             // Lógica para ler os Atalhos (Shortcuts) do ícone pressionado
@@ -266,16 +310,31 @@
             document.getElementById('form-type').value = type;
             const btnExp = document.getElementById('btn-type-expense');
             const btnInv = document.getElementById('btn-type-investment');
-            const catContainer = document.getElementById('form-category-container');
+            const catSelect = document.getElementById('form-category');
+            const descContainer = document.getElementById('form-desc-container');
 
             if (type === 'expense') {
                 btnExp.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-red-500 transition";
                 btnInv.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-green-500 transition";
-                catContainer.classList.remove('hidden');
+                catSelect.innerHTML = `
+                    <option value="mercado">🛒 Mercado</option>
+                    <option value="restaurante">🍽️ Restaurante</option>
+                    <option value="transporte">🚗 Transporte</option>
+                    <option value="diversao">🎉 Diversão</option>
+                    <option value="moradia">🏠 Moradia</option>
+                    <option value="saude">❤️ Saúde</option>
+                    <option value="outros">••• Outros</option>
+                `;
+                descContainer.classList.remove('hidden');
             } else {
                 btnInv.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-white shadow text-green-500 transition";
                 btnExp.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-red-500 transition";
-                catContainer.classList.add('hidden');
+                catSelect.innerHTML = `
+                    <option value="pagamento">💰 Pagamento/Salário</option>
+                    <option value="investimento">📈 Investimento</option>
+                    <option value="reembolso">🔄 Reembolso</option>
+                `;
+                descContainer.classList.add('hidden'); // Ocultar descrição
             }
         }
 
@@ -299,11 +358,13 @@
 
             monthTransactions.forEach(t => {
                 if (t.type === 'expense') totalExpense += t.amount;
-                if (t.type === 'investment') totalInvestment += t.amount;
+                if (t.type === 'income') totalInvestment += t.amount;
             });
 
             document.getElementById('total-expense').innerText = formatCurrency(totalExpense);
             document.getElementById('total-investment').innerText = formatCurrency(totalInvestment);
+
+            updateGoalWidget(); // Atualiza a meta de investimentos
 
             renderHistory(monthTransactions);
             
@@ -317,9 +378,14 @@
             e.preventDefault();
             const type = document.getElementById('form-type').value;
             const amount = parseFloat(document.getElementById('form-amount').value);
-            const category = type === 'expense' ? document.getElementById('form-category').value : 'investimento';
-            const desc = document.getElementById('form-desc').value;
+            const category = document.getElementById('form-category').value;
+            let desc = document.getElementById('form-desc').value;
             const date = document.getElementById('form-date').value;
+
+            // Preenche automaticamente com a categoria caso não tenha descrição
+            if (!desc || desc.trim() === '') {
+                desc = categoryData[category].name;
+            }
 
             const newTx = { id: Date.now(), type, category, amount, description: desc, date };
             
@@ -363,20 +429,167 @@
             showToast("Registro apagado.");
         }
 
+        // --- META DE INVESTIMENTOS ---
+        function updateGoalWidget() {
+            const year = currentDate.getFullYear();
+            document.getElementById('goal-year').innerText = year;
+            document.getElementById('goal-display').innerText = formatCurrency(annualInvestmentGoal);
+
+            const ytdInvestments = transactions
+                .filter(t => t.date.startsWith(year.toString()) && t.category === 'investimento')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            document.getElementById('ytd-investment').innerText = formatCurrency(ytdInvestments);
+
+            let percent = annualInvestmentGoal > 0 ? (ytdInvestments / annualInvestmentGoal) * 100 : 0;
+            if (percent > 100) percent = 100;
+
+            document.getElementById('goal-progress-bar').style.width = `${percent}%`;
+            document.getElementById('goal-percentage').innerText = `${percent.toFixed(1)}% concluído`;
+        }
+
+        function openGoalModal() {
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm";
+            overlay.innerHTML = `
+                <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl animate-fade-in">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">Meta de Investimento</h3>
+                    <p class="text-gray-500 text-sm mb-4">Defina sua meta de aportes para ${currentDate.getFullYear()}.</p>
+                    <input type="number" id="new-goal-input" value="${annualInvestmentGoal}" step="100" class="w-full text-xl p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5">
+                    <div class="flex gap-3">
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition" onclick="this.closest('.fixed').remove()">Cancelar</button>
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 transition" onclick="saveGoal(this)">Salvar</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function saveGoal(btnElement) {
+            const input = document.getElementById('new-goal-input');
+            const newGoal = parseFloat(input.value);
+            if (!isNaN(newGoal) && newGoal >= 0) {
+                annualInvestmentGoal = newGoal;
+                localStorage.setItem('tapago_goal_v1', annualInvestmentGoal);
+                updateApp();
+                btnElement.closest('.fixed').remove();
+                showToast("Meta atualizada!");
+            } else {
+                showToast("Valor inválido.", true);
+            }
+        }
+
+        // --- SELEÇÃO E EXCLUSÃO EM LOTE ---
+        function toggleSelectMode() {
+            isSelectMode = !isSelectMode;
+            selectedTransactions.clear();
+            
+            const btn = document.getElementById('btn-bulk-select');
+            const actionBar = document.getElementById('bulk-action-bar');
+            
+            if (isSelectMode) {
+                btn.innerText = "Cancelar Seleção";
+                btn.classList.replace('bg-blue-50', 'bg-gray-200');
+                btn.classList.replace('text-blue-600', 'text-gray-700');
+                actionBar.classList.remove('hidden');
+                actionBar.classList.add('flex');
+            } else {
+                btn.innerText = "Selecionar Vários";
+                btn.classList.replace('bg-gray-200', 'bg-blue-50');
+                btn.classList.replace('text-gray-700', 'text-blue-600');
+                actionBar.classList.add('hidden');
+                actionBar.classList.remove('flex');
+            }
+            
+            updateSelectedCount();
+            updateApp();
+        }
+
+        function toggleRowSelection(id) {
+            if (!isSelectMode) return;
+            
+            if (selectedTransactions.has(id)) {
+                selectedTransactions.delete(id);
+            } else {
+                selectedTransactions.add(id);
+            }
+            updateSelectedCount();
+            
+            const checkIcon = document.getElementById(`check-icon-${id}`);
+            const row = document.getElementById(`tx-row-${id}`);
+            if (selectedTransactions.has(id)) {
+                checkIcon.classList.replace('ph-circle', 'ph-check-circle');
+                checkIcon.classList.replace('text-gray-300', 'text-blue-600');
+                row.classList.add('border-blue-300', 'bg-blue-50');
+            } else {
+                checkIcon.classList.replace('ph-check-circle', 'ph-circle');
+                checkIcon.classList.replace('text-blue-600', 'text-gray-300');
+                row.classList.remove('border-blue-300', 'bg-blue-50');
+            }
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selected-count').innerText = selectedTransactions.size;
+        }
+
+        function confirmBulkDelete() {
+            if (selectedTransactions.size === 0) {
+                showToast("Selecione pelo menos um registro.", true);
+                return;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm";
+            overlay.innerHTML = `
+                <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl animate-fade-in">
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">Apagar Múltiplos?</h3>
+                    <p class="text-gray-500 text-sm mb-5">Tem certeza que deseja apagar ${selectedTransactions.size} registro(s)? Isso não pode ser desfeito.</p>
+                    <div class="flex gap-3">
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition" onclick="this.closest('.fixed').remove()">Cancelar</button>
+                        <button class="flex-1 py-2 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition" onclick="executeBulkDelete(); this.closest('.fixed').remove()">Apagar Tudo</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function executeBulkDelete() {
+            transactions = transactions.filter(t => !selectedTransactions.has(t.id));
+            localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+            toggleSelectMode();
+            showToast("Registros apagados.");
+        }
+
+        // Função para alterar categoria pelo histórico
+        function updateCategory(id, newCategory) {
+            const txIndex = transactions.findIndex(t => t.id === id);
+            if (txIndex !== -1) {
+                transactions[txIndex].category = newCategory;
+                localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+                updateApp();
+                showToast("Categoria atualizada!");
+            }
+        }
+
         // --- IMPORTAÇÃO DE CSV E INTELIGÊNCIA ---
         function guessCategory(desc, isExpense) {
-            if (!isExpense) return 'investimento';
             const d = desc.toLowerCase();
             
-            // Inteligência simples para adivinhar onde você gastou
-            if (d.includes('ifood') || d.includes('restaurante') || d.includes('padaria') || d.includes('pizza') || d.includes('mcdonald') || d.includes('bk')) return 'restaurante';
-            if (d.includes('uber') || d.includes('99') || d.includes('posto') || d.includes('combustivel') || d.includes('passagem') || d.includes('metro')) return 'transporte';
-            if (d.includes('mercado') || d.includes('supermercado') || d.includes('atacadao') || d.includes('carrefour') || d.includes('hortifruti')) return 'mercado';
-            if (d.includes('netflix') || d.includes('spotify') || d.includes('cinema') || d.includes('ingresso') || d.includes('steam') || d.includes('ingresso')) return 'diversao';
-            if (d.includes('farmacia') || d.includes('droga') || d.includes('medico') || d.includes('hospital') || d.includes('unimed')) return 'saude';
-            if (d.includes('luz') || d.includes('agua') || d.includes('condominio') || d.includes('aluguel') || d.includes('internet') || d.includes('vivo') || d.includes('claro')) return 'moradia';
+            if (!isExpense) {
+                if (d.includes('reembolso') || d.includes('estorno') || d.includes('devolu')) return 'reembolso';
+                if (d.includes('salário') || d.includes('salario') || d.includes('pagamento') || d.includes('pix recebido') || d.includes('transferência recebida') || d.includes('remunera')) return 'pagamento';
+                return 'investimento';
+            }
             
-            return 'outros'; // Padrão caso não consiga adivinhar
+            // Inteligência simples para adivinhar onde você gastou
+            if (d.includes('ifood') || d.includes('restaurante') || d.includes('padaria') || d.includes('pizza') || d.includes('mcdonald') || d.includes('bk') || d.includes('lanche')) return 'restaurante';
+            if (d.includes('mercado') || d.includes('atacadao') || d.includes('carrefour') || d.includes('extra') || d.includes('assai')) return 'mercado';
+            if (d.includes('uber') || d.includes('99') || d.includes('gasolina') || d.includes('posto') || d.includes('estacionamento')) return 'transporte';
+            if (d.includes('cinema') || d.includes('ingresso') || d.includes('spotify') || d.includes('netflix') || d.includes('jogos')) return 'diversao';
+            if (d.includes('farmacia') || d.includes('droga') || d.includes('hospital') || d.includes('unimed') || d.includes('consulta')) return 'saude';
+            if (d.includes('aluguel') || d.includes('condominio') || d.includes('luz') || d.includes('agua') || d.includes('internet') || d.includes('vivo') || d.includes('claro')) return 'moradia';
+            
+            return 'outros';
         }
 
         function handleCSVUpload(event) {
@@ -384,7 +597,7 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 const text = e.target.result;
                 const lines = text.split('\n').filter(l => l.trim() !== '');
                 if (lines.length < 2) {
@@ -407,6 +620,7 @@
                 if (descIdx === -1) descIdx = headers.length > 2 ? 1 : -1;
 
                 let addedCount = 0;
+                let skippedCount = 0;
 
                 for (let i = 1; i < lines.length; i++) {
                     // Evita quebrar ao achar vírgulas dentro de aspas no texto da descrição
@@ -445,18 +659,32 @@
                     if (isNaN(amount) || amount === 0) continue;
 
                     // Lógica para detectar se é despesa ou investimento/rendimento
-                    let type = amount < 0 ? 'expense' : 'investment';
+                    let type = amount < 0 ? 'expense' : 'income';
                     let dLower = descRaw.toLowerCase();
                     
                     // Alguns cartões mandam a fatura toda com sinal positivo. Assumimos tudo como despesa, exceto algumas palavras
-                    if (amount > 0 && (dLower.includes('rendimento') || dLower.includes('resgate') || dLower.includes('salário') || dLower.includes('pix recebido') || dLower.includes('transferência recebida'))) {
-                         type = 'investment';
+                    if (amount > 0 && (dLower.includes('rendimento') || dLower.includes('resgate') || dLower.includes('salário') || dLower.includes('pix recebido') || dLower.includes('transferência recebida') || dLower.includes('reembolso'))) {
+                         type = 'income';
                     } else if (amount > 0 && sep === ',') {
                         type = 'expense';
                     }
                     
                     let finalAmount = Math.abs(amount);
                     let category = guessCategory(descRaw, type === 'expense');
+
+                    // --- DETECÇÃO DE DUPLICIDADE ---
+                    let isDuplicate = transactions.some(existing => 
+                        existing.date === dateStr && 
+                        existing.amount === finalAmount && 
+                        existing.description === descRaw &&
+                        existing.type === type
+                    );
+
+                    if (isDuplicate) {
+                        skippedCount++;
+                        continue; // Pula este item se já existir
+                    }
+                    // -------------------------------
 
                     transactions.push({
                         id: Date.now() + i,
@@ -469,9 +697,15 @@
                     addedCount++;
                 }
 
-                if (addedCount > 0) {
-                    localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
-                    showToast(`${addedCount} registros importados com sucesso!`);
+                if (addedCount > 0 || skippedCount > 0) {
+                    if (addedCount > 0) {
+                        localStorage.setItem('myFinanceData_v1', JSON.stringify(transactions));
+                    }
+                    
+                    let msg = `${addedCount} registro(s) importado(s).`;
+                    if (skippedCount > 0) msg += ` ${skippedCount} duplicado(s) ignorado(s).`;
+                    
+                    showToast(msg, addedCount === 0); // Fica vermelho só se 100% forem duplicados
                     updateApp();
                     switchTab('historico');
                 } else {
@@ -510,23 +744,54 @@
                 const [y, m, d] = t.date.split('-');
                 const dateStr = `${d}/${m}`;
 
+                // Criar o menu Select (Dropdown) para edição rápida
+                const optionsExpense = ['mercado', 'restaurante', 'transporte', 'diversao', 'moradia', 'saude', 'outros'];
+                const optionsIncome = ['pagamento', 'investimento', 'reembolso'];
+                const currentOptions = isExpense ? optionsExpense : optionsIncome;
+                
+                let selectOptions = currentOptions.map(opt => 
+                    `<option value="${opt}" ${t.category === opt ? 'selected' : ''}>${categoryData[opt].name}</option>`
+                ).join('');
+
                 const item = document.createElement('div');
-                item.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3";
+                item.id = `tx-row-${t.id}`;
+                item.className = `bg-white p-3 rounded-xl shadow-sm border ${isSelectMode && selectedTransactions.has(t.id) ? 'border-blue-300 bg-blue-50' : 'border-gray-100'} flex items-center gap-3 transition-colors`;
+                
+                // Estrutura do Checkbox (Modo Lote)
+                let checkboxHTML = '';
+                if (isSelectMode) {
+                    const isChecked = selectedTransactions.has(t.id);
+                    checkboxHTML = `
+                        <div class="mr-1 cursor-pointer flex-shrink-0" onclick="toggleRowSelection(${t.id})">
+                            <i id="check-icon-${t.id}" class="ph ${isChecked ? 'ph-check-circle text-blue-600' : 'ph-circle text-gray-300'} text-2xl transition-colors"></i>
+                        </div>
+                    `;
+                }
+
                 item.innerHTML = `
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center ${cat.bg} ${cat.text}">
+                    ${checkboxHTML}
+                    <div class="w-10 h-10 rounded-full flex shrink-0 items-center justify-center ${cat.bg} ${cat.text}">
                         <i class="ph ${cat.icon} text-xl"></i>
                     </div>
-                    <div class="flex-1 overflow-hidden">
-                        <h3 class="font-bold text-gray-800 text-sm truncate">${t.description}</h3>
-                        <p class="text-xs text-gray-500">${cat.name} • ${dateStr}</p>
+                    <div class="flex-1 overflow-hidden" ${isSelectMode ? `onclick="toggleRowSelection(${t.id})"` : ''}>
+                        <h3 class="font-bold text-gray-800 text-sm truncate ${isSelectMode ? 'cursor-pointer' : ''}">${t.description}</h3>
+                        <div class="flex items-center text-xs text-gray-500 mt-0.5">
+                            ${isSelectMode 
+                                ? `<span>${categoryData[t.category].name}</span>` 
+                                : `<select onchange="updateCategory(${t.id}, this.value)" class="bg-gray-50 border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-blue-400 mr-2 max-w-[105px] truncate cursor-pointer hover:bg-gray-100 transition">${selectOptions}</select>`
+                            }
+                            <span class="${isSelectMode ? 'ml-2' : ''}">• ${dateStr}</span>
+                        </div>
                     </div>
-                    <div class="text-right">
+                    <div class="text-right flex flex-col justify-between items-end shrink-0">
                         <p class="font-bold text-sm ${isExpense ? 'text-red-500' : 'text-green-500'}">
                             ${isExpense ? '-' : '+'}${formatCurrency(t.amount)}
                         </p>
-                        <button onclick="deleteTransaction(${t.id})" class="text-xs text-gray-400 hover:text-red-500 mt-1">
-                            <i class="ph ph-trash"></i> Apagar
+                        ${!isSelectMode ? `
+                        <button onclick="deleteTransaction(${t.id})" class="text-lg text-gray-300 hover:text-red-500 mt-1 transition">
+                            <i class="ph ph-trash"></i>
                         </button>
+                        ` : ''}
                     </div>
                 `;
                 list.appendChild(item);
@@ -599,6 +864,73 @@
                                     label += formatCurrency(context.raw);
                                     return label;
                                 }
+                            }
+                        }
+                    }
+                }
+            });
+
+            renderYearlyChart(); // Atualiza o gráfico anual junto
+        }
+
+        function renderYearlyChart() {
+            const year = currentDate.getFullYear();
+            document.getElementById('year-display').innerText = year;
+            
+            // Pega transações só deste ano
+            const yearTransactions = transactions.filter(t => t.date.startsWith(year.toString()));
+            
+            const monthlyExpenses = Array(12).fill(0);
+            const monthlyIncomes = Array(12).fill(0);
+
+            yearTransactions.forEach(t => {
+                const monthIndex = parseInt(t.date.split('-')[1]) - 1; // 0 para Janeiro, 11 para Dezembro
+                if (t.type === 'expense') {
+                    monthlyExpenses[monthIndex] += t.amount;
+                } else {
+                    monthlyIncomes[monthIndex] += t.amount;
+                }
+            });
+
+            const canvas = document.getElementById('yearlyChart');
+            if (yearlyChartInstance) yearlyChartInstance.destroy();
+
+            const ctx = canvas.getContext('2d');
+            yearlyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+                    datasets: [
+                        {
+                            label: 'Entradas',
+                            data: monthlyIncomes,
+                            backgroundColor: '#10b981', // Verde
+                            borderRadius: 4,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        },
+                        {
+                            label: 'Saídas',
+                            data: monthlyExpenses,
+                            backgroundColor: '#ef4444', // Vermelho
+                            borderRadius: 4,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { display: false, beginAtZero: true }, // Oculta o eixo Y para visual limpo
+                        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#9ca3af' } }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 6, font: {size: 10} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return formatCurrency(context.raw); }
                             }
                         }
                     }
