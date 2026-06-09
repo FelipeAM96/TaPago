@@ -1,41 +1,22 @@
 {
-  "name": "PatoPay",
+  "name": "PatoPay - Controlo de Finanças",
   "short_name": "PatoPay",
-  "description": "Gerencie suas despesas e investimentos de forma privada no seu celular.",
-  "start_url": "index.html",
+  "description": "A sua aplicação simples para controlo de despesas e investimentos.",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
-  "theme_color": "#2563eb",
+  "theme_color": "#3b82f6",
   "orientation": "portrait",
-  "shortcuts": [
-    {
-      "name": "Nova Despesa",
-      "short_name": "Despesa",
-      "description": "Adicionar nova despesa",
-      "url": "./index.html?tab=novo&type=expense",
-      "icons": [{"src": "./img/PatoPay_Transparente.png", "sizes": "192x192"}]
-    },
-    {
-      "name": "Novo Investimento",
-      "short_name": "Investimento",
-      "description": "Adicionar novo investimento",
-      "url": "./index.html?tab=novo&type=investment",
-      "icons": [{"src": "./img/PatoPay_Transparente.png", "sizes": "192x192"}]
-    }
-  ],
   "icons": [
     {
-      "src": "./img/PatoPay_Transparente.png",
+      "src": "https://img.icons8.com/?size=192&id=102875&format=png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "./img/PatoPay_Transparente.png",
+      "src": "https://img.icons8.com/?size=512&id=102875&format=png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
-```
