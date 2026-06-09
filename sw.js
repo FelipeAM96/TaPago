@@ -1,37 +1,45 @@
-const CACHE_NAME = 'patopay-app-v2';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'patopay-cache-v1';
+const urlsToCache = [
   './index.html',
-  './manifest.json',
-  './img/PatoPay_Transparente.png'
+  'https://cdn.tailwindcss.com',
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://unpkg.com/@phosphor-icons/web'
 ];
 
-// Instalação: Guarda os ficheiros iniciais na cache do telemóvel
-self.addEventListener('install', (event) => {
+// Instalação do Service Worker e cache dos recursos principais
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Cache aberto com sucesso');
+        return cache.addAll(urlsToCache);
+      })
   );
-  self.skipWaiting();
 });
 
-// Ativação: Limpa caches antigas se houver atualizações
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-// Intercetor de pedidos: Responde com a cache se estiver offline
-self.addEventListener('fetch', (event) => {
+// Interceptar as requisições para retornar os dados da cache quando offline
+self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
+    caches.match(event.request)
+      .then(response => {
+        // Retorna a cache se encontrar, senão faz a requisição na rede
+        return response || fetch(event.request);
+      })
+  );
+});
+
+// Atualização do Service Worker e limpeza de caches antigos
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
     })
   );
 });
