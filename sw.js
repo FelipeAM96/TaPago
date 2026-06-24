@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tapago-cache-v1.1'; // Atualizado para forçar o download da nova imagem
+const CACHE_NAME = 'tapago-cache-v1.2'; // Atualizado para forçar o download da nova imagem
 
 // Ficheiros essenciais para guardar na memória do telemóvel
 const urlsToCache = [
