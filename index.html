@@ -141,6 +141,14 @@
                     </button>
                 </div>
                 
+                <button id="btn-request-notif" class="hidden w-full mb-6 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex items-center justify-between transition-colors touch-manipulation">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="bell-ring" class="w-5 h-5"></i>
+                        <span class="text-sm font-bold">Ativar Lembretes no Telemóvel</span>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+
                 <div id="categories-list" class="flex flex-col gap-3 mb-6"></div>
 
                 <button id="btn-open-add-modal" class="w-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 active:bg-green-300 font-bold py-4 rounded-xl transition-colors border border-green-200 dark:border-green-800 flex items-center justify-center gap-2 touch-manipulation shadow-sm">
@@ -168,7 +176,7 @@
         <!-- ADD MODAL -->
         <div id="add-category-modal" class="hidden absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex-col justify-end fade-in">
             <div class="bg-white dark:bg-gray-800 rounded-t-3xl p-6 pb-8 shadow-2xl slide-up transition-colors duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
-                <div class="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-gray-800 z-10 py-2">
+                <div class="flex justify-between items-center mb-6 py-2">
                     <h3 id="add-modal-title" class="text-xl font-bold text-gray-800 dark:text-white">Criar Novo</h3>
                     <button id="btn-close-add-modal" class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300 transition-colors active:scale-95 touch-manipulation">
                         <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
@@ -286,7 +294,7 @@
         
         <div id="filter-modal" class="hidden absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex-col justify-end fade-in">
             <div class="bg-white dark:bg-gray-800 rounded-t-3xl p-6 pb-8 shadow-2xl slide-up max-h-[60vh] overflow-y-auto no-scrollbar">
-                <div class="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-gray-800 z-10 py-2">
+                <div class="flex justify-between items-center mb-6 py-2">
                     <h3 class="text-xl font-bold text-gray-800 dark:text-white">Filtrar Calendário</h3>
                     <button id="btn-close-filter" class="p-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors touch-manipulation"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
                 </div>
@@ -892,6 +900,61 @@
         document.getElementById('btn-prev-month').addEventListener('click', () => { state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() - 1, 1); renderCalendar(); });
         document.getElementById('btn-next-month').addEventListener('click', () => { state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + 1, 1); renderCalendar(); });
         document.getElementById('btn-go-today').addEventListener('click', () => { state.currentDate = new Date(); renderCalendar(); });
+
+        // ==========================================
+        // 5. SISTEMA DE LEMBRETES (NOTIFICAÇÕES)
+        // ==========================================
+        const btnRequestNotif = document.getElementById('btn-request-notif');
+        
+        if (btnRequestNotif) {
+            // Mostra o botão no menu "Gerir" se as notificações ainda não foram permitidas
+            if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                btnRequestNotif.classList.remove('hidden');
+            }
+
+            btnRequestNotif.addEventListener('click', async () => {
+                if ('Notification' in window) {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        btnRequestNotif.classList.add('hidden');
+                        showCustomDialog("Sucesso", "Notificações ativadas! A app enviará lembretes quando estiver aberta ou minimizada.", "alert");
+                    } else {
+                        showCustomDialog("Aviso", "Permissão negada. Não poderemos enviar alertas sonoros.", "alert");
+                    }
+                }
+            });
+        }
+
+        // Loop que verifica a cada 30 segundos se há algum alarme programado
+        setInterval(() => {
+            const now = new Date();
+            const currentDay = now.getDay();
+            const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const todayStrLocal = getLocalYYYYMMDD(now);
+            
+            // Impede que a mesma notificação toque 20 vezes dentro do mesmo minuto
+            if (state.lastNotifiedTime === currentTime) return;
+
+            state.categories.forEach(cat => {
+                if (cat.reminder && cat.time === currentTime && cat.days.includes(currentDay)) {
+                    // Só toca se a tarefa AINDA NÃO tiver sido feita hoje
+                    const todayData = state.activitiesData[todayStrLocal] || {};
+                    const actValue = todayData[cat.id];
+                    const isCompleted = actValue !== undefined && actValue !== false;
+
+                    if (!isCompleted) {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification("TáPago - Lembrete!", {
+                                body: `Está na hora de: ${cat.label}`,
+                                icon: 'img/TaPagoOk.png',
+                                vibrate: [200, 100, 200, 100, 200, 100, 200] // Padrão de vibração
+                            });
+                        }
+                    }
+                }
+            });
+            state.lastNotifiedTime = currentTime;
+        }, 30000); // 30000 ms = 30 segundos
 
         loadData();
     </script>
