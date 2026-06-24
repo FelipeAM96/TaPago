@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tapago-cache-v1.0'; // Mude este número sempre que quiser forçar uma limpeza profunda de cache
+const CACHE_NAME = 'tapago-cache-v1.1'; // Atualizado para forçar o download da nova imagem
 
 // Ficheiros essenciais para guardar na memória do telemóvel
 const urlsToCache = [
@@ -6,7 +6,7 @@ const urlsToCache = [
   './index.html',
   './manifest.json',
   './img/TaPago.png',
-  './img/TaPago_Logo.png'
+  './img/TaPagoOk.png'
 ];
 
 // 1. Instalação: Guarda os ficheiros base no cache
