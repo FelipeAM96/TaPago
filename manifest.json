@@ -8,13 +8,13 @@
   "description": "App de Metas e Rotinas",
   "icons": [
     {
-      "src": "img/TaPago_Logo.png",
+      "src": "img/TaPagoOk.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "img/TaPago_Logo.png",
+      "src": "img/TaPagoOk.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
