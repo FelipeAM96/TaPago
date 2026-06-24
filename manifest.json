@@ -1,0 +1,23 @@
+{
+  "name": "TáPago",
+  "short_name": "TáPago",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#22c55e",
+  "description": "App de Metas e Rotinas",
+  "icons": [
+    {
+      "src": "img/TaPago_Logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/TaPago_Logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
