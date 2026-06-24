@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TáPago - Metas e Rotinas</title>
     
-    <!-- O Manifest é gerado dinamicamente no script abaixo para ser 100% independente -->
-    <link rel="manifest" id="dynamic-manifest">
+    <link rel="manifest" href="manifest.json">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -299,69 +298,65 @@
 
     <script>
         // ==========================================
-        // 1. SISTEMA DE ATUALIZAÇÃO AUTOMÁTICA (AUTO-UPDATE)
+        // 1. SISTEMA DE ATUALIZAÇÃO E SERVICE WORKER
         // ==========================================
-        const APP_VERSION = 'v5.0'; // MUDE AQUI PARA ATUALIZAR O APP (ex: v5.1, v5.2)
-        document.getElementById('version-display').textContent = APP_VERSION;
-
-        const currentSavedVersion = localStorage.getItem('tapago_version');
         
-        // Se a versão mudou, apagamos todo o histórico de cache (mas mantemos os dados do utilizador!)
-        if (currentSavedVersion !== APP_VERSION) {
-            localStorage.setItem('tapago_version', APP_VERSION);
-            
-            // Limpa o cache físico do navegador
-            if ('caches' in window) {
-                caches.keys().then(keys => {
-                    Promise.all(keys.map(key => caches.delete(key)));
-                }).catch(e => console.log('Cache não acessível:', e));
-            }
-            
-            // Remove Service Workers antigos
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    regs.forEach(reg => reg.unregister());
-                }).catch(e => console.log('Service Worker não acessível:', e));
-            }
-
-            // Recarrega a página de forma dura se já existia versão (evita loop infinito na primeira visita)
-            if (currentSavedVersion) {
-                window.location.reload(true);
-            }
-        }
-
-        // ==========================================
-        // 2. GERAÇÃO DINÂMICA DE PWA (MANIFEST)
-        // ==========================================
-        const manifestData = {
-            "name": "TáPago",
-            "short_name": "TáPago",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#f9fafb",
-            "theme_color": "#22c55e",
-            "icons": [{
-                "src": "img/TaPago_Logo.png",
-                "sizes": "192x192 512x512",
-                "type": "image/png",
-                "purpose": "any maskable"
-            }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifestData)], {type: 'application/manifest+json'});
-        document.getElementById('dynamic-manifest').href = URL.createObjectURL(manifestBlob);
-
-        // ==========================================
-        // 3. SERVICE WORKER REGISTRATION (Opcional - Reutiliza o seu sw.js)
-        // ==========================================
-        // O sistema acima limpa o cache. Este regista novamente caso exista o ficheiro sw.js
+        // Regista o Service Worker padrão
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(e => console.log('Modo 1-file ativo, SW ignorado.'));
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker Registado!'))
+                    .catch(e => console.log('SW falhou:', e));
             });
         }
 
+        // Lê a versão diretamente do sw.js para evitar conflitos
+        fetch('sw.js', { cache: 'no-store' }) // no-store para forçar a ver se houve mudança no servidor
+            .then(response => response.text())
+            .then(text => {
+                // Procura a linha: const CACHE_NAME = 'tapago-cache-vX.X';
+                const match = text.match(/CACHE_NAME\s*=\s*['"]tapago-cache-(v[0-9.]+)['"]/);
+                if (match) {
+                    const APP_VERSION = match[1];
+                    document.getElementById('version-display').textContent = APP_VERSION;
+
+                    const currentSavedVersion = localStorage.getItem('tapago_version');
+                    
+                    // Se a versão for diferente, limpa os caches antigos
+                    if (currentSavedVersion !== APP_VERSION) {
+                        localStorage.setItem('tapago_version', APP_VERSION);
+                        
+                        if ('caches' in window) {
+                            caches.keys().then(keys => {
+                                Promise.all(keys.map(key => caches.delete(key)));
+                            }).catch(e => console.log('Cache não acessível:', e));
+                        }
+                        
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.getRegistrations().then(regs => {
+                                regs.forEach(reg => {
+                                    // Apenas desregista se houver uma grande atualização forçada
+                                    // Mas normalmente deixamos o SW novo assumir sozinho
+                                    reg.update();
+                                });
+                            }).catch(e => console.log('Service Worker não acessível:', e));
+                        }
+
+                        // Recarrega se já não for a primeira vez
+                        if (currentSavedVersion) {
+                            window.location.reload(true);
+                        }
+                    }
+                }
+            })
+            .catch(e => {
+                console.log("A executar offline. Versão não verificada no servidor.");
+                document.getElementById('version-display').textContent = localStorage.getItem('tapago_version') || 'Offline';
+            });
+
+
         // ==========================================
-        // 4. LÓGICA PRINCIPAL DO APP
+        // 2. LÓGICA PRINCIPAL DO APP
         // ==========================================
         const state = {
             activeTab: 'home',
