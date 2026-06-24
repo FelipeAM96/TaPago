@@ -1,9 +1,12 @@
-const CACHE_NAME = 'tapago-cache-v10.0'; // Mude este número sempre que quiser forçar uma limpeza profunda de cache
+const CACHE_NAME = 'tapago-cache-v1.0'; // Mude este número sempre que quiser forçar uma limpeza profunda de cache
 
-// Como o manifest e o ícone são gerados pelo HTML, só precisamos fazer cache do próprio HTML
+// Ficheiros essenciais para guardar na memória do telemóvel
 const urlsToCache = [
   './',
-  './index.html'
+  './index.html',
+  './manifest.json',
+  './img/TaPago.png',
+  './img/TaPago_Logo.png'
 ];
 
 // 1. Instalação: Guarda os ficheiros base no cache
@@ -18,14 +21,14 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// 2. Ativação: Limpa caches antigos do TáPago ou QuackUp
+// 2. Ativação: Limpa caches antigos (qualquer versão que não seja a CACHE_NAME atual)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Limpando cache antigo do Service Worker:', cacheName);
+            console.log('Limpando cache antigo:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -49,7 +52,7 @@ self.addEventListener('fetch', event => {
 
         // Se não encontrou, vai à internet e guarda no cache para a próxima vez
         return fetch(event.request).then(fetchResponse => {
-          // Apenas guarda requisições válidas
+          // Apenas guarda requisições válidas e não extensões do Chrome
           if (!fetchResponse || fetchResponse.status !== 200 || fetchResponse.type !== 'basic' || event.request.url.startsWith('chrome-extension')) {
             return fetchResponse;
           }
