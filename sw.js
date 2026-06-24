@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tapago-cache-v5.0'; // Mude este número sempre que quiser forçar uma limpeza profunda de cache
+const CACHE_NAME = 'tapago-cache-v1.0'; // Mude este número sempre que quiser forçar uma limpeza profunda de cache
 
 // Como o manifest e o ícone são gerados pelo HTML, só precisamos fazer cache do próprio HTML
 const urlsToCache = [
